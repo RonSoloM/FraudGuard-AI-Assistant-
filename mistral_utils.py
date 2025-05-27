@@ -94,13 +94,14 @@ class MistralHandler:
         
         return f"{context}Q: {question}\nA:"
 
-    def generate_response(self, question: str) -> str:
+    def generate_response(self, question: str, use_context: bool = True, extra_context: str = "") -> str:
         """
         Generate a response using the AI model.
         
         Args:
             question (str): The user's question
-            
+            use_context (bool): Whether to use the fraud context in the prompt
+            extra_context (str): Optional extra context (e.g., SQL data summary)
         Returns:
             str: The model's response
         """
@@ -108,8 +109,14 @@ class MistralHandler:
             return "AI model is not initialized. Please check the model installation."
 
         try:
-            # Create a context-aware prompt
-            prompt = self._create_context_prompt(question)
+            # Create a context-aware prompt only if use_context is True
+            if use_context:
+                prompt = self._create_context_prompt(question)
+            else:
+                prompt = f"Q: {question}\nA:"
+            # Prepend extra context if provided
+            if extra_context and str(extra_context).strip():
+                prompt = f"Here is the latest data:\n{str(extra_context)}\n\n" + prompt
 
             # Generate response with optimized parameters for speed
             with torch.no_grad():  # Disable gradient calculation

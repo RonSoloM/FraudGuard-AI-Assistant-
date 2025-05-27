@@ -3,23 +3,39 @@ FraudGuard AI Assistant
 
 This script initializes a professional, clean GUI for the FraudGuard AI Assistant.
 It provides intelligent fraud analysis through natural language interface.
+
+Requirements:
+- Python 3.8+
+- ttkbootstrap>=1.10.1
+- spacy>=3.7.2
+- Pillow>=10.0.0
+- tabulate>=0.9.0
+- pandas>=2.0.0
+- transformers>=4.36.0
+- torch>=2.1.0
+- accelerate>=0.25.0
+- en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1-py3-none-any.whl
 """
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog, simpledialog
 from db_utils import establish_connection, run_query
 from nlp_utils import detect_intent
 from supported_questions import INTENTS
 from mistral_utils import MistralHandler
 import spacy
-from PIL import Image, ImageTk
 from tabulate import tabulate
 import pandas as pd
 from typing import Optional
 import threading
 import time
+from PIL import Image, ImageTk
+import smtplib
+from email.message import EmailMessage
+import tempfile
+import os
 
 # Professional color palette
 BG_COLOR = "#ffffff"  # Clean white background
@@ -35,7 +51,22 @@ class NLPBotApp:
     def __init__(self, master):
         self.master = master
         master.title("FraudGuard AI Assistant")
-        master.configure(bg=BG_COLOR)
+        master.geometry("1400x800")
+
+        # Dynamic background image setup
+        self.bg_image_path = r"C:/Users/Zol0/Mini-model-For-BI/v904-nunny-012.jpg"
+        self.original_bg = Image.open(self.bg_image_path)
+        self.bg_photo = None
+        self.bg_image_id = None
+
+        self.canvas = tk.Canvas(master, highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+
+        # Frame for all UI widgets
+        self.ui_frame = tk.Frame(self.canvas, bg=BG_COLOR)
+        self.canvas_window = self.canvas.create_window(0, 0, anchor="nw", window=self.ui_frame)
+
+        master.bind("<Configure>", self._resize_bg)
 
         self.nlp = spacy.load("en_core_web_md")
         self.intent_docs = {
@@ -54,37 +85,55 @@ class NLPBotApp:
 
         self.create_server_db_widgets()
 
+    def _resize_bg(self, event):
+        # Resize the background image to fit the window
+        if event.widget != self.master:
+            return
+        w, h = event.width, event.height
+        if w < 10 or h < 10:
+            return
+        resized = self.original_bg.resize((w, h), Image.Resampling.LANCZOS)
+        self.bg_photo = ImageTk.PhotoImage(resized)
+        if self.bg_image_id is None:
+            self.bg_image_id = self.canvas.create_image(0, 0, image=self.bg_photo, anchor="nw")
+        else:
+            self.canvas.itemconfig(self.bg_image_id, image=self.bg_photo)
+        self.canvas.lower(self.bg_image_id)  # Keep background at the back
+        # Resize the UI frame window on the canvas
+        self.canvas.coords(self.canvas_window, 0, 0)
+        self.canvas.itemconfig(self.canvas_window, width=w, height=h)
+
     def create_server_db_widgets(self):
-        for widget in self.master.winfo_children():
+        for widget in self.ui_frame.winfo_children():
             widget.destroy()
 
-        frame = tk.Frame(self.master, bg=BG_COLOR)
+        frame = tk.Frame(self.ui_frame, bg=BG_COLOR)
         frame.pack(expand=True)
 
         # Title with underscore effect
-        title_frame = tk.Frame(frame, bg=BG_COLOR)
+        title_frame = tk.Frame(frame)
         title_frame.grid(row=0, column=0, columnspan=2, pady=(40, 20))
         
         title = tk.Label(title_frame, text="FraudGuard AI Assistant", 
                         font=("Segoe UI", 24, "bold"),
-                        fg=ACCENT_COLOR, bg=BG_COLOR)
+                        fg=ACCENT_COLOR)
         title.pack()
         
         subtitle = tk.Label(title_frame, text="Intelligent Fraud Analysis & Natural Language Interface", 
                           font=("Segoe UI", 12),
-                          fg=SECONDARY_COLOR, bg=BG_COLOR)
+                          fg=SECONDARY_COLOR)
         subtitle.pack(pady=(0, 5))
         
         # Underscore line
         underscore = tk.Frame(title_frame, height=3, bg=ACCENT_COLOR)
         underscore.pack(fill="x", pady=(5, 0))
 
-        tk.Label(frame, text="Server:", font=FONT_MAIN, fg=TEXT_COLOR, bg=BG_COLOR).grid(row=1, column=0, sticky="e", padx=10, pady=10)
+        tk.Label(frame, text="Server:", font=FONT_MAIN, fg=TEXT_COLOR).grid(row=1, column=0, sticky="e", padx=10, pady=10)
         self.server_entry = tb.Entry(frame, width=30, font=FONT_MAIN)
         self.server_entry.insert(0, "")
         self.server_entry.grid(row=1, column=1, padx=10, pady=10)
 
-        tk.Label(frame, text="Database:", font=FONT_MAIN, fg=TEXT_COLOR, bg=BG_COLOR).grid(row=2, column=0, sticky="e", padx=10, pady=10)
+        tk.Label(frame, text="Database:", font=FONT_MAIN, fg=TEXT_COLOR).grid(row=2, column=0, sticky="e", padx=10, pady=10)
         self.database_entry = tb.Entry(frame, width=30, font=FONT_MAIN)
         self.database_entry.insert(0, "")
         self.database_entry.grid(row=2, column=1, padx=10, pady=10)
@@ -107,26 +156,26 @@ class NLPBotApp:
             messagebox.showerror("Connection Status", f"❌ Failed to connect: {e}")
 
     def create_widgets(self):
-        for widget in self.master.winfo_children():
+        for widget in self.ui_frame.winfo_children():
             widget.destroy()
 
         # Create main container with padding
-        container = tk.Frame(self.master, bg=BG_COLOR)
+        container = tk.Frame(self.ui_frame, bg=BG_COLOR)
         container.pack(expand=True, fill="both", padx=20, pady=20)
 
         frame = tk.Frame(container, bg=BG_COLOR)
         frame.pack(expand=True, fill="both")
 
         # Title with bottom border
-        title_frame = tk.Frame(frame, bg=BG_COLOR)
+        title_frame = tk.Frame(frame)
         title_frame.grid(row=0, column=0, columnspan=3, pady=(20, 30), sticky="ew")
         title = tk.Label(title_frame, text="FraudGuard AI Assistant", font=("Segoe UI", 22, "bold"),
-                         fg=ACCENT_COLOR, bg=BG_COLOR)
+                         fg=ACCENT_COLOR)
         title.pack()
         
         subtitle = tk.Label(title_frame, text="Intelligent Fraud Analysis & Natural Language Interface", 
                           font=("Segoe UI", 12),
-                          fg=SECONDARY_COLOR, bg=BG_COLOR)
+                          fg=SECONDARY_COLOR)
         subtitle.pack(pady=(0, 5))
         
         separator = tk.Frame(title_frame, height=2, bg=BORDER_COLOR)
@@ -246,12 +295,12 @@ class NLPBotApp:
             icon.bind("<Leave>", on_leave)
 
         # Main interaction panel with improved styling
-        main_panel = tk.Frame(frame, bg=BG_COLOR)
+        main_panel = tk.Frame(frame)
         main_panel.grid(row=1, column=1, padx=(20, 40), pady=20, sticky="nsew")
 
         # Remove the duplicate title and just keep the question label
         self.question_label = tk.Label(main_panel, text="Ask your question:", 
-                                     font=FONT_MAIN, fg=ACCENT_COLOR, bg=BG_COLOR)
+                                     font=FONT_MAIN, fg=ACCENT_COLOR)
         self.question_label.pack(anchor="w", pady=(10, 5))
 
         # Question entry with subtle border
@@ -261,7 +310,7 @@ class NLPBotApp:
         self.question_entry.pack(fill="x", padx=1, pady=1, ipady=8)
 
         # Button container for better alignment
-        button_frame = tk.Frame(main_panel, bg=BG_COLOR)
+        button_frame = tk.Frame(main_panel)
         button_frame.pack(pady=(0, 20))
         
         # Styled buttons
@@ -284,20 +333,19 @@ class NLPBotApp:
         result_frame.pack(fill="both", expand=True, padx=10)
         
         self.result_text = tk.Text(result_frame, height=20, width=60, font=("Consolas", 12),
-                                 bg="#ffffff", fg=TEXT_COLOR, insertbackground=TEXT_COLOR, 
+                                 bg=BG_COLOR, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, 
                                  wrap="word", bd=0, relief="flat")
         self.result_text.pack(fill="both", expand=True, padx=1, pady=1)
 
         # Add "Powered by" text at the bottom right
-        powered_frame = tk.Frame(main_panel, bg=BG_COLOR)
+        powered_frame = tk.Frame(main_panel)
         powered_frame.pack(fill="x", pady=(5, 0))
         
         powered_label = tk.Label(
             powered_frame,
             text="Powered by Microsoft Phi-2",
             font=("Segoe UI", 9, "italic"),
-            fg=SECONDARY_COLOR,
-            bg=BG_COLOR
+            fg=SECONDARY_COLOR
         )
         powered_label.pack(side="right", padx=10)
 
@@ -350,7 +398,7 @@ class NLPBotApp:
         self.result_text.delete(1.0, tk.END)
         
         # Create loading frame
-        loading_frame = tk.Frame(self.result_text, bg=str(BG_COLOR))
+        loading_frame = tk.Frame(self.result_text)
         loading_frame.place(relx=0.5, rely=0.5, anchor="center")
         
         # Loading text with spinner
@@ -359,8 +407,7 @@ class NLPBotApp:
             loading_frame,
             text=f"{spinner_frames[0]} AI is thinking...",
             font=("Segoe UI", 14),
-            fg=str(ACCENT_COLOR),
-            bg=str(BG_COLOR)
+            fg=str(ACCENT_COLOR)
         )
         spinner_label.pack(pady=10)
         
@@ -378,15 +425,16 @@ class NLPBotApp:
             try:
                 # Start spinner animation
                 update_spinner()
-                
-                # Get AI response
-                response = self.mistral_handler.generate_response(question)
-                
+                # Use spaCy-based intent detection for context decision
+                detected_intent = detect_intent(user_question=question, intent_docs=self.intent_docs, nlp=self.nlp)
+                use_context = detected_intent is not None
+                # Pass last_result_summary as extra context if available
+                extra_context = getattr(self, 'last_result_summary', '')
+                response = self.mistral_handler.generate_response(question, use_context=use_context, extra_context=extra_context)
                 # Clear loading animation and show response
                 if self.loading_frame is not None and self.loading_frame.winfo_exists():
                     self.loading_frame.destroy()
                     self.loading_frame = None
-                
                 # Update the result text in the main thread
                 self.master.after(0, lambda: self.update_result_text(response))
             except Exception as e:
@@ -405,14 +453,17 @@ class NLPBotApp:
     def display_results(self, result_df):
         self.result_text.delete(1.0, tk.END)
         self.last_result_df = result_df  # Store for export
+        # Store a summary string for LLM context (first 5 rows)
         if result_df is not None and not result_df.empty:
             table_str = tabulate(result_df, headers='keys', tablefmt='psql', showindex=False)
             self.result_text.insert(tk.END, table_str)
+            # Save a short summary for LLM context (first 5 rows)
+            self.last_result_summary = tabulate(result_df.head(5), headers='keys', tablefmt='psql', showindex=False)
         else:
             self.result_text.insert(tk.END, "No results found.")
+            self.last_result_summary = None
 
     def export_results(self):
-        from tkinter import filedialog
         if self.last_result_df is None or self.last_result_df.empty:
             messagebox.showwarning("Export", "No results to export.")
             return
@@ -422,12 +473,6 @@ class NLPBotApp:
             messagebox.showinfo("Export", f"Results exported to {file_path}")
 
     def send_results_email(self):
-        from tkinter import simpledialog
-        import smtplib
-        from email.message import EmailMessage
-        import tempfile
-        import os
-
         if self.last_result_df is None or self.last_result_df.empty:
             messagebox.showwarning("Send to Email", "No results to send.")
             return
@@ -435,10 +480,10 @@ class NLPBotApp:
         # Create a custom dialog window
         dialog = tk.Toplevel(self.master)
         dialog.title("Send Results via Email")
-        dialog.geometry("400x500")  # Increased height from 400 to 500
+        dialog.geometry("400x500")
         dialog.configure(bg=BG_COLOR)
-        dialog.transient(self.master)  # Make dialog modal
-        dialog.grab_set()  # Make dialog modal
+        dialog.transient(self.master)
+        dialog.grab_set()
 
         # Center the dialog
         dialog.update_idletasks()
@@ -449,27 +494,27 @@ class NLPBotApp:
         dialog.geometry(f'{width}x{height}+{x}+{y}')
 
         # Create and style the input fields
-        frame = tk.Frame(dialog, bg=BG_COLOR, padx=20, pady=30)  # Increased top/bottom padding
+        frame = tk.Frame(dialog, bg=BG_COLOR, padx=20, pady=30)
         frame.pack(expand=True, fill="both")
 
         # Recipient email
         tk.Label(frame, text="Recipient Email:", font=("Segoe UI", 11), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", pady=(0, 5))
         recipient_entry = tb.Entry(frame, width=40, font=("Segoe UI", 11))
-        recipient_entry.pack(fill="x", pady=(0, 20))  # Increased spacing
+        recipient_entry.pack(fill="x", pady=(0, 20))
 
         # Sender email
         tk.Label(frame, text="Your Email:", font=("Segoe UI", 11), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", pady=(0, 5))
         sender_entry = tb.Entry(frame, width=40, font=("Segoe UI", 11))
-        sender_entry.pack(fill="x", pady=(0, 20))  # Increased spacing
+        sender_entry.pack(fill="x", pady=(0, 20))
 
         # Password
         tk.Label(frame, text="Your Password:", font=("Segoe UI", 11), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w", pady=(0, 5))
         password_entry = tb.Entry(frame, width=40, font=("Segoe UI", 11), show="*")
-        password_entry.pack(fill="x", pady=(0, 30))  # Increased spacing
+        password_entry.pack(fill="x", pady=(0, 30))
 
         # Buttons frame
         button_frame = tk.Frame(frame, bg=BG_COLOR)
-        button_frame.pack(fill="x", pady=(20, 0))  # Increased top padding
+        button_frame.pack(fill="x", pady=(20, 0))
 
         def on_send():
             recipient = recipient_entry.get().strip()
@@ -482,7 +527,7 @@ class NLPBotApp:
 
             # Save DataFrame to a temporary Excel file
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-                assert self.last_result_df is not None  # Type assertion for linter
+                assert self.last_result_df is not None
                 self.last_result_df.to_excel(tmp.name, index=False)
                 tmp_path = tmp.name
 
@@ -527,7 +572,6 @@ class NLPBotApp:
 
 if __name__ == "__main__":
     root = tb.Window(themename="flatly")
-    root.geometry("1400x800")
     style = tb.Style()
     style.configure("primary.TButton", font=("Segoe UI", 11))
     style.configure("secondary.TButton", font=("Segoe UI", 11))
