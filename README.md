@@ -1,4 +1,4 @@
-# FraudGuard AI Assistant
+# FraudGuard AI Assistant (nlp+Phi-2)
 
 A professional-grade fraud analysis tool that combines natural language processing with intelligent data analysis to help detect and analyze fraudulent transactions.
 
@@ -92,7 +92,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Mistral AI for the AI model
+- Phi-2 AI for the AI model
 - spaCy for NLP capabilities
 - ttkbootstrap for the modern UI components
 
