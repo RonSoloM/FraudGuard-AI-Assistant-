@@ -62,7 +62,7 @@ python app_gui.py
 ## 🛠️ Project Structure
 
 - `app_gui.py`: Main application file with GUI implementation
-- `mistral_utils.py`: AI model integration
+- `phi2_utils.py`: AI model integration
 - `db_utils.py`: Database connection and query utilities
 - `nlp_utils.py`: Natural language processing utilities
 - `supported_questions.py`: Predefined question patterns

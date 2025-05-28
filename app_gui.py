@@ -24,7 +24,7 @@ from tkinter import messagebox, filedialog, simpledialog
 from db_utils import establish_connection, run_query
 from nlp_utils import detect_intent
 from supported_questions import INTENTS
-from mistral_utils import MistralHandler
+from phi2_utils import MistralHandler
 import spacy
 from tabulate import tabulate
 import pandas as pd
@@ -55,12 +55,17 @@ class NLPBotApp:
 
         # Dynamic background image setup
         self.bg_image_path = r"C:/Users/Zol0/Mini-model-For-BI/v904-nunny-012.jpg"
-        self.original_bg = Image.open(self.bg_image_path)
+        self.original_bg = None
         self.bg_photo = None
         self.bg_image_id = None
 
-        self.canvas = tk.Canvas(master, highlightthickness=0)
+        self.canvas = tk.Canvas(master, highlightthickness=0, bg=BG_COLOR)
         self.canvas.pack(fill="both", expand=True)
+
+        try:
+            self.original_bg = Image.open(self.bg_image_path)
+        except FileNotFoundError:
+            print("Background image not found. Using default background color.")
 
         # Frame for all UI widgets
         self.ui_frame = tk.Frame(self.canvas, bg=BG_COLOR)
@@ -92,13 +97,14 @@ class NLPBotApp:
         w, h = event.width, event.height
         if w < 10 or h < 10:
             return
-        resized = self.original_bg.resize((w, h), Image.Resampling.LANCZOS)
-        self.bg_photo = ImageTk.PhotoImage(resized)
-        if self.bg_image_id is None:
-            self.bg_image_id = self.canvas.create_image(0, 0, image=self.bg_photo, anchor="nw")
-        else:
-            self.canvas.itemconfig(self.bg_image_id, image=self.bg_photo)
-        self.canvas.lower(self.bg_image_id)  # Keep background at the back
+        if self.original_bg is not None:
+            resized = self.original_bg.resize((w, h), Image.Resampling.LANCZOS)
+            self.bg_photo = ImageTk.PhotoImage(resized)
+            if self.bg_image_id is None:
+                self.bg_image_id = self.canvas.create_image(0, 0, image=self.bg_photo, anchor="nw")
+            else:
+                self.canvas.itemconfig(self.bg_image_id, image=self.bg_photo)
+            self.canvas.lower(self.bg_image_id)  # Keep background at the back
         # Resize the UI frame window on the canvas
         self.canvas.coords(self.canvas_window, 0, 0)
         self.canvas.itemconfig(self.canvas_window, width=w, height=h)
