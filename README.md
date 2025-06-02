@@ -5,7 +5,7 @@ A professional-grade fraud analysis tool that combines natural language processi
 ## 🌟 Features
 
 - **Natural Language Interface**: Ask questions about fraud analysis in plain English
-- **Intelligent Analysis**: Powered by Mistral AI for advanced fraud detection
+- **Intelligent Analysis**: Powered by Microsoft Phi-2 + NLP Lib for advanced fraud detection
 - **Interactive GUI**: Modern, user-friendly interface built with ttkbootstrap
 - **Database Integration**: Direct connection to your SQL database
 - **Export Capabilities**: Export analysis results to various formats
